@@ -1,7 +1,7 @@
 {
   "name": "@imqueue/type-graphql-dependency",
-  "version": "1.1.7",
-  "description": "Cross-service GraphQL dependencies for underlying @imqueue services",
+  "version": "1.0.0",
+  "description": "Adoption of @imqueue/graphql-dependency for use with type-graphql",
   "main": "index.js",
   "scripts": {
     "prepublishOnly": "npm run build",
@@ -31,7 +31,8 @@
     "dependency-graph",
     "dependency-loader",
     "graphql-dependency",
-    "imqueue"
+    "imqueue",
+    "type-graphql"
   ],
   "author": "imqueue.com <support@imqueue.com>",
   "license": "ISC",
