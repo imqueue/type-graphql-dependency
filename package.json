@@ -42,7 +42,7 @@
   "homepage": "https://github.com/imqueue/graphql-dependency#readme",
   "dependencies": {
     "@imqueue/graphql-dependency": "^1.1.8",
-    "graphql": "14.7.0",
+    "graphql": "14.7.0"
   },
   "devDependencies": {
     "@types/chai": "^4.2.11",
