@@ -1,3 +1,4 @@
+/* tslint:disable:ban-types */
 /*!
  * @imqueue/type-graphql-dependency - Declarative GraphQL dependency loading
  *
@@ -40,7 +41,7 @@ export interface DependentTypeRelations {
     filter: { [foreignField: string]: /*localField: */string };
 }
 
-export type DependentType = (...args: any[]) => {} | ((...args: any[]) => {})[];
+export type DependentType = Function | Function[];
 
 export interface DependsOptions<T> {
     require?: [() => DependentType, DependentTypeRelations[]][];
@@ -49,7 +50,7 @@ export interface DependsOptions<T> {
 }
 
 export interface DependencyInterface<T> {
-    (type: (...args: any[]) => {}): GraphQLDependency<T>;
+    (type: Function): GraphQLDependency<T>;
     schema?: GraphQLSchema;
 }
 
@@ -72,7 +73,7 @@ export interface DependencyInterface<T> {
  * @constructor
  */
 export const Dependency: DependencyInterface<any> = (
-    type: (...args: any[]) => {},
+    type: Function,
 ): GraphQLDependency<any> => {
     const { schema } = Dependency;
 
@@ -81,6 +82,7 @@ export const Dependency: DependencyInterface<any> = (
             'nor any dependencies defied!');
     }
 
+    // noinspection TypeScriptRedundantGenericType
     const targetType = schema.getType(type.name) as GraphQLObjectType<any, any>;
 
     if (!targetType || !targetType.getFields) {
