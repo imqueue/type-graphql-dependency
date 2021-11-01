@@ -15,4 +15,11 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-export * from './decorators';
+import { expect } from 'chai';
+import { Dependency } from '../..';
+
+describe('Dependency', () => {
+    it('should be a function', () => {
+        expect(typeof Dependency).equals('function');
+    });
+});
