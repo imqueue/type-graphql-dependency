@@ -41,7 +41,7 @@
   },
   "homepage": "https://github.com/imqueue/graphql-dependency#readme",
   "dependencies": {
-    "@imqueue/graphql-dependency": "^1.4.0",
+    "@imqueue/graphql-dependency": "^1.5.0",
     "graphql": "^16.8.1"
   },
   "devDependencies": {
