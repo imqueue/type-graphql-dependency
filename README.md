@@ -1,6 +1,6 @@
 # @imqueue/type-graphql-dependency
 
-[![Build Status](https://travis-ci.com/type-graphql-dependency/type-graphql-dependency.svg?branch=master)](https://travis-ci.com/imqueue/type-graphql-dependency)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/imqueue/type-graphql-dependency/build.yml)](https://github.com/imqueue/type-graphql-dependency)
 [![License](https://img.shields.io/badge/license-ISC-blue.svg)](https://rawgit.com/imqueue/type-graphql-dependency/master/LICENSE)
 
 Adoption of @imqueue/graphql-dependency for use with type-graphql.
@@ -85,6 +85,7 @@ const schema = await buildSchema({
 // so now all deps initialized within schema
 ~~~
 
-# License
+## License
 
-[ISC](https://github.com/imqueue/type-graphql-dependency/blob/master/LICENSE)
+This project is licensed under the GNU General Public License v3.0.
+See the [LICENSE](LICENSE)
