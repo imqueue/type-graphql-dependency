@@ -23,11 +23,11 @@
  * <support@imqueue.com> to get commercial licensing options.
  */
 import {
-    DataInitializer,
-    DataLoader,
+    type DataInitializer,
+    type DataLoader,
     Dependency as BaseDependency,
-    DependencyFilterOptions,
-    DependencyOptionsGetter,
+    type DependencyFilterOptions,
+    type DependencyOptionsGetter,
     GraphQLDependency,
 } from '@imqueue/graphql-dependency';
 import { GraphQLObjectType, GraphQLSchema } from 'graphql';
@@ -44,7 +44,7 @@ export function onCreateSchema(handler: CreateSchemaHook) {
 
 export interface DependentTypeRelations {
     as: string;
-    filter: { [foreignField: string]: /*localField: */string };
+    filter: { [foreignField: string]: /*localField: */ string };
 }
 
 export type DependentType = Function | Function[];
@@ -84,20 +84,23 @@ export const Dependency: DependencyInterface<any> = (
     const { schema } = Dependency;
 
     if (!schema) {
-        throw new TypeError('Either GraphQL schema was not initialized, ' +
-            'nor any dependencies defied!');
+        throw new TypeError(
+            'Either GraphQL schema was not initialized, ' +
+                'nor any dependencies defied!',
+        );
     }
 
     // noinspection TypeScriptRedundantGenericType
     const targetType = schema.getType(type.name) as GraphQLObjectType<any, any>;
 
     if (!targetType || !targetType.getFields) {
-        throw new TypeError(`Invalid loaderOf target: ${
-            type.name } - not a GraphQL type!`);
+        throw new TypeError(
+            `Invalid loaderOf target: ${type.name} - not a GraphQL type!`,
+        );
     }
 
     return BaseDependency(targetType as any);
-}
+};
 
 // noinspection JSUnusedGlobalSymbols
 /**
@@ -161,93 +164,109 @@ export const Dependency: DependencyInterface<any> = (
  * @constructor
  */
 export function DependencyFor<T>(options: DependsOptions<T>) {
-    return (target: any) => onCreateSchema(schema => {
-        if (!Dependency.schema) {
-            Dependency.schema = schema;
-        }
+    return (target: any) =>
+        onCreateSchema(schema => {
+            if (!Dependency.schema) {
+                Dependency.schema = schema;
+            }
 
-        const targetName = target.name;
-        const targetType = schema.getType(targetName) as GraphQLObjectType;
+            const targetName = target.name;
+            const targetType = schema.getType(targetName) as GraphQLObjectType;
 
-        if (!targetType || !targetType.getFields) {
-            throw new TypeError(`Invalid DependencyOf target: ${
-                targetName} - not a GraphQL type!`);
-        }
+            if (!targetType || !targetType.getFields) {
+                throw new TypeError(
+                    `Invalid DependencyOf target: ${
+                        targetName
+                    } - not a GraphQL type!`,
+                );
+            }
 
-        if (options.require) {
-            for (const [thunk, relations] of options.require) {
-                const type = thunk();
-                // noinspection SuspiciousTypeOfGuard
-                const isList = type instanceof Array;
-                const typeName = isList
-                    ? (type as unknown as ((...args: any[]) => {})[])[0].name
-                    : (type as (...args: any[]) => {}).name;
-                const dep = schema.getType(typeName) as GraphQLObjectType;
+            if (options.require) {
+                for (const [thunk, relations] of options.require) {
+                    const type = thunk();
+                    // noinspection SuspiciousTypeOfGuard
+                    const isList = type instanceof Array;
+                    const typeName = isList
+                        ? (type as unknown as ((...args: any[]) => {})[])[0]
+                              .name
+                        : (type as (...args: any[]) => {}).name;
+                    const dep = schema.getType(typeName) as GraphQLObjectType;
 
-                if (!dep || !dep.getFields) {
-                    throw new TypeError(`Invalid dependent type given: ${
-                        typeName } - not a GraphQL type!`);
-                }
-
-                const requireArgs: DependencyOptionsGetter[] = [];
-
-                for (const relation of relations) {
-                    const targetField = targetType.getFields()[relation.as];
-                    const filter: DependencyFilterOptions = {};
-
-                    if (!targetField) {
+                    if (!dep || !dep.getFields) {
                         throw new TypeError(
-                            `Invalid target field specified on ${
-                                target.name } -> ${
-                                typeName }.as = ${
-                                relation.as }`,
+                            `Invalid dependent type given: ${
+                                typeName
+                            } - not a GraphQL type!`,
                         );
                     }
 
-                    for (const foreignName of Object.keys(relation.filter)) {
-                        const localName = relation.filter[foreignName];
-                        const foreign = dep.getFields()[foreignName];
-                        const local = targetType.getFields()[localName];
+                    const requireArgs: DependencyOptionsGetter[] = [];
 
-                        if (!foreign) {
-                            throw new TypeError(
-                                `Invalid foreign field specified on ${
-                                    targetName } -> ${ typeName }.filter[${
-                                    foreignName
-                                }] - no such GraphQL field defined!`);
-                        }
+                    for (const relation of relations) {
+                        const targetField = targetType.getFields()[relation.as];
+                        const filter: DependencyFilterOptions = {};
 
-                        if (!local) {
+                        if (!targetField) {
                             throw new TypeError(
-                                `Invalid local field specified on ${
-                                    targetName } -> ${ typeName }.filter[${
-                                    foreignName }] = ${
-                                    local } - no such GraphQL field defined!`,
+                                `Invalid target field specified on ${
+                                    target.name
+                                } -> ${typeName}.as = ${relation.as}`,
                             );
                         }
 
-                        filter[foreignName] = local as any;
+                        for (const foreignName of Object.keys(
+                            relation.filter,
+                        )) {
+                            const localName = relation.filter[foreignName];
+                            const foreign = dep.getFields()[foreignName];
+                            const local = targetType.getFields()[localName];
+
+                            if (!foreign) {
+                                throw new TypeError(
+                                    `Invalid foreign field specified on ${
+                                        targetName
+                                    } -> ${typeName}.filter[${
+                                        foreignName
+                                    }] - no such GraphQL field defined!`,
+                                );
+                            }
+
+                            if (!local) {
+                                throw new TypeError(
+                                    `Invalid local field specified on ${
+                                        targetName
+                                    } -> ${typeName}.filter[${foreignName}] = ${
+                                        local
+                                    } - no such GraphQL field defined!`,
+                                );
+                            }
+
+                            filter[foreignName] = local as any;
+                        }
+
+                        requireArgs.push(() => ({
+                            as: targetField as any,
+                            filter,
+                        }));
                     }
 
-                    requireArgs.push(() => ({
-                        as: targetField as any,
-                        filter,
-                    }));
+                    BaseDependency(targetType as any).require(
+                        dep as any,
+                        ...requireArgs,
+                    );
                 }
+            }
 
-                BaseDependency(targetType as any).require(
-                    dep as any,
-                    ...requireArgs,
+            if (options.init) {
+                BaseDependency(targetType as any).defineInitializer(
+                    options.init as any,
                 );
             }
-        }
 
-        if (options.init) {
-            BaseDependency(targetType as any).defineInitializer(options.init);
-        }
-
-        if (options.load) {
-            BaseDependency(targetType as any).defineLoader(options.load);
-        }
-    });
+            if (options.load) {
+                BaseDependency(targetType as any).defineLoader(
+                    options.load as any,
+                );
+            }
+        });
 }
