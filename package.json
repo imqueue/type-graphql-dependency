@@ -1,6 +1,6 @@
 {
   "name": "@imqueue/type-graphql-dependency",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Adoption of @imqueue/graphql-dependency for use with type-graphql",
   "main": "index.js",
   "scripts": {
