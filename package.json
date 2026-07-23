@@ -39,7 +39,7 @@
   "bugs": {
     "url": "https://github.com/imqueue/graphql-dependency/issues"
   },
-  "homepage": "https://github.com/imqueue/graphql-dependency#readme",
+  "homepage": "https://imqueue.org/",
   "dependencies": {
     "@imqueue/graphql-dependency": "^3.0.3"
   },
