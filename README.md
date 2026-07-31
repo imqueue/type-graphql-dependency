@@ -1,7 +1,7 @@
 # @imqueue/type-graphql-dependency
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/imqueue/type-graphql-dependency/build.yml)](https://github.com/imqueue/type-graphql-dependency)
-[![License](https://img.shields.io/badge/license-ISC-blue.svg)](https://rawgit.com/imqueue/type-graphql-dependency/master/LICENSE)
+[![License](https://img.shields.io/badge/license-GPL-blue.svg)](https://rawgit.com/imqueue/type-graphql-dependency/master/LICENSE)
 
 Adoption of @imqueue/graphql-dependency for use with type-graphql.
 

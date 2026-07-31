@@ -32,51 +32,181 @@ import {
 } from '@imqueue/graphql-dependency';
 import { GraphQLObjectType, GraphQLSchema } from 'graphql';
 
+/**
+ * A deferred piece of dependency wiring, run once the `type-graphql` schema
+ * exists and the classes it was declared against have become GraphQL types.
+ */
 export type CreateSchemaHook = (schema: GraphQLSchema) => void;
 
+/**
+ * Every deferred wiring hook registered so far, in the order it was registered.
+ *
+ * @remarks
+ * Applying {@link DependencyFor} appends to this array; nothing in this package
+ * ever drains it. Running the hooks is the application's job, once the schema is
+ * built:
+ *
+ * ```typescript
+ * const schema = await buildSchema({ resolvers: [...] });
+ *
+ * schemaHooks.forEach(hook => hook(schema));
+ * ```
+ *
+ * Skip that and no dependency is registered at all. There is no warning — the
+ * decorated classes look wired and their dependency fields stay empty.
+ */
 export const schemaHooks: CreateSchemaHook[] = [];
 
+/**
+ * Registers a hook to run when the schema is created, ignoring a handler already
+ * registered.
+ *
+ * @remarks
+ * {@link DependencyFor} uses this internally; call it directly to defer wiring of
+ * your own that also needs the finished schema. De-duplication is by function
+ * identity, so a named function passed twice is stored once while two identical
+ * inline arrows are two hooks.
+ *
+ * @param handler - the hook to run with the built schema
+ */
 export function onCreateSchema(handler: CreateSchemaHook) {
     if (!~schemaHooks.indexOf(handler)) {
         schemaHooks.push(handler);
     }
 }
 
+/**
+ * One relation from the decorated class to a dependent class: where the loaded
+ * objects are attached, and how they are matched.
+ */
 export interface DependentTypeRelations {
+    /**
+     * The name of the field on the decorated class the loaded objects are written
+     * to. It must be a field of the generated GraphQL type, or the hook throws
+     * `TypeError` when the schema is created.
+     */
     as: string;
+
+    /**
+     * How to find the dependent objects belonging to each instance: each key is a
+     * field of the *dependent* type that its loader filters on, and each value is
+     * the field on the *decorated* class supplying the values.
+     *
+     * @remarks
+     * The direction is easy to read backwards, so: key is foreign, value is local.
+     * `{ consumerId: 'id' }` on a `Consumer` requiring `ApiKey` means "filter api
+     * keys by `consumerId`, using each consumer's `id`". Both names are checked
+     * against the schema and an unknown one throws `TypeError`.
+     */
     filter: { [foreignField: string]: /*localField: */ string };
 }
 
+/**
+ * The class a requirement points at, named through a thunk.
+ *
+ * @remarks
+ * A bare class and a single-element array behave identically — only the first
+ * element is read, and only for its name. The array form is a readability
+ * convention for "many of these", matching how the relation's target field is
+ * typed; whether one object or a list is attached is decided by that field's own
+ * GraphQL type, not by this.
+ */
 export type DependentType = Function | Function[];
 
+/**
+ * What {@link DependencyFor} declares for one class — any combination of
+ * requirements, an initializer and a loader.
+ *
+ * @remarks
+ * All three are optional, and each maps onto its `@imqueue/graphql-dependency`
+ * counterpart. Passing none is legal and registers a hook that does nothing.
+ *
+ * @typeParam T - the shape of the entity being described, usually a `Partial` of
+ *                the decorated class
+ */
 export interface DependsOptions<T> {
+    /**
+     * The classes this one owns, each paired with its relations — a thunk naming
+     * the dependent class, and one {@link DependentTypeRelations} per relation to
+     * it. Deferred through a thunk so a class can require another that is not
+     * defined yet, which is what makes circular relations expressible.
+     */
     require?: [() => DependentType, DependentTypeRelations[]][];
+
+    /**
+     * An async routine that fills extra fields on this class's objects before its
+     * dependencies load, for values a requirement filter needs but the initial
+     * result does not carry.
+     *
+     * @remarks
+     * Registered without naming the fields it fills, which means every dependency
+     * of this class waits for it. Declaring those fields — and so letting
+     * unrelated dependencies load alongside it — needs the underlying
+     * `defineInitializer()`, which takes them.
+     */
     init?: DataInitializer<T>;
+
+    /**
+     * The bulk fetch for this class, called whenever another class requires it.
+     * Every object it returns must carry an `id`, and it must accept a set of
+     * values per filter key rather than one.
+     */
     load?: DataLoader<T>;
 }
 
+/**
+ * The callable {@link Dependency} exposes: a class in, its dependency description
+ * out, plus the schema it resolves classes against.
+ *
+ * @typeParam T - the entity type the returned description is for
+ */
 export interface DependencyInterface<T> {
     (type: Function): GraphQLDependency<T>;
+
+    /**
+     * The built schema used to turn a class into its GraphQL type.
+     *
+     * @remarks
+     * Set automatically by the first {@link DependencyFor} hook to run, so it is
+     * populated as a side effect of wiring rather than by configuration. Until
+     * then it is `undefined` and {@link Dependency} throws — which is why a
+     * `Dependency()` call before the schema hooks have run cannot work, even
+     * though the schema itself may already exist.
+     *
+     * Assignable, if an application needs to point it at a particular schema or
+     * reset it between schemas in a test.
+     */
     schema?: GraphQLSchema;
 }
 
 /**
- * Abstracts Dependency from @imqueue/graphql-dependency to make it possible
- * to work with a plain classes from type-graphql. This function is not intended
- * to be used to define dependencies, only to refer already defined
- * dependencies.
+ * The dependency description for a `type-graphql` class — the runtime half of
+ * this package, for loading dependencies inside a resolver.
  *
- * To define dependencies for type-graphql classes use @DependencyFor()
- * decorator instead.
+ * @remarks
+ * This looks up a description; it does not define one. Use {@link DependencyFor}
+ * to declare loaders, requirements and initializers, and this to reach the
+ * `load()` that resolves them.
+ *
+ * It works by mapping the class to the GraphQL type of the same name in
+ * {@link DependencyInterface.schema} and delegating to
+ * `Dependency` from `@imqueue/graphql-dependency`. So the class name and the
+ * GraphQL type name have to agree: giving `@ObjectType` an explicit `name`
+ * option that differs from the class name breaks the lookup.
  *
  * @example
- * import { Dependency } from './src/decorators';
- * // ... in a resolver, before data return:
- * await Dependency(Consumer).load(context, data, fields);
+ * ```typescript
+ * import { Dependency } from '@imqueue/type-graphql-dependency';
  *
- * @param {Function} type
- * @return {GraphQLDependency<any>}
- * @constructor
+ * // in a resolver, before returning the data
+ * await Dependency(Consumer).load(data, context, fields);
+ * ```
+ *
+ * @param type - the decorated class whose dependencies to resolve
+ * @returns the dependency description registered for that class's GraphQL type
+ * @throws TypeError if the schema has not been handed to the hooks in
+ *         {@link schemaHooks} yet, or if the class is not a GraphQL object type
+ *         in it
  */
 export const Dependency: DependencyInterface<any> = (
     type: Function,
@@ -104,64 +234,65 @@ export const Dependency: DependencyInterface<any> = (
 
 // noinspection JSUnusedGlobalSymbols
 /**
- * Decorator for describing dependencies between graphql entities, using
- * their type-graphql definitions as classes and @imqueue/graphql-dependency
- * as an engine.
+ * Class decorator declaring how a `type-graphql` entity is loaded and what it
+ * depends on, wiring it into `@imqueue/graphql-dependency`.
  *
- * This decorator simply wrap native graphql-js-based implementation of
- * graphql-dependency from @imqueue and operates with a similar concepts:
- *  - requires
- *  - initializers
- *  - loaders
- * @see https://github.com/imqueue/graphql-dependency
+ * @remarks
+ * Applying it does not wire anything. It registers a hook on {@link schemaHooks},
+ * because the `GraphQLObjectType` the class becomes does not exist while the
+ * decorator runs. The declarations only reach the engine once the application
+ * passes the built schema to those hooks.
+ *
+ * That deferral moves every validation failure to the same later moment. Inside
+ * the hook, a `TypeError` is raised for a class that is not a GraphQL object type
+ * in the schema, a relation whose `as` names no field on it, or a `filter` naming
+ * a field on neither side. Running the hooks during boot rather than lazily is
+ * what turns these into start-up failures instead of per-request ones.
+ *
+ * It works with both decorator conventions: the legacy
+ * `experimentalDecorators` form and standard TC39 decorators. Only the class name
+ * is read and nothing is returned, so both behave identically.
  *
  * @example
- * // Let's assume we want to decorate Consumer objects to be dependent on
- * // nested ApiKey objects:
+ * ```typescript
+ * // Consumer owns a list of ApiKey objects, loaded in bulk
  * @DependencyFor<Partial<Consumer>>({
- *    // this defines dependency relations for Consumer object.
- *    // refers to: @imqueue/graphql-dependency:Dependency.require()
- *    require: [
- *        [() => ApiKey, [
- *          { as: 'apiKeys', filter: { 'consumerId': 'id' } }],
- *        ],
- *    ],
- *    // this defines initializer for Consumer, all dependencies will wait
- *    // for initializer to finish before load
- *    // refers to: @imqueue/graphql-dependency:Dependency.defineInitializer()
- *    async init(
- *        context: Context,
- *        result: Partial<Consumer>,
- *        fields?: FieldsInput,
- *    ): Promise<DataInitializerResult> {
- *        // ... do initializer stuff here ...
- *        return result;
- *    },
- *    // this defines loader for Consumer entity, which should be used by
- *    // other entities, which depend on Consumer
- *    // refers to: @imqueue/graphql-dependency:Dependency.defineLoader()
- *    async load(
- *        context: Context,
- *        filter: ConsumerListInput,
- *        fields?: FieldsInput,
- *    ): Promise<Partial<Consumer>[]> {
- *        const { data } = await context.consumer.listConsumer(filter, fields);
- *        return toConsumers(data);
- *    },
+ *     require: [
+ *         [() => ApiKey, [
+ *             // attach to Consumer.apiKeys; filter api keys by consumerId,
+ *             // feeding it each consumer's own id
+ *             { as: 'apiKeys', filter: { consumerId: 'id' } },
+ *         ]],
+ *     ],
+ *     // pre-fills fields the requirement filters need; every dependency of
+ *     // Consumer waits for it, since the fields it fills are not declared here
+ *     async init(
+ *         context: Context,
+ *         result: Partial<Consumer>[],
+ *         fields?: FieldsInput,
+ *     ): Promise<DataInitializerResult> {
+ *         return keyById(await context.consumer.enrich(result));
+ *     },
+ *     // how other entities load Consumer when they require it
+ *     async load(
+ *         context: Context,
+ *         filter: ConsumerListInput,
+ *         fields?: FieldsInput,
+ *     ): Promise<Partial<Consumer>[]> {
+ *         const { data } = await context.consumer.listConsumer(filter, fields);
+ *
+ *         return toConsumers(data);
+ *     },
  * })
  * @ObjectType()
  * export class Consumer {
- *     // ... Consumer fields definitions goes here ...
+ *     // ... field definitions ...
  * }
+ * ```
  *
- * // now within a resolver:
- * import { Dependency } from './src/decorators';
- * // ... in a resolver, before data return:
- * await Dependency(Consumer).load(data, context, fields);
- *
- * @param {DependsOptions<T>} options
- * @return {(target: any) => void}
- * @constructor
+ * @param options - the loader, requirements and initializer to declare
+ * @returns the class decorator to apply
+ * @see {@link https://github.com/imqueue/graphql-dependency}
  */
 export function DependencyFor<T>(options: DependsOptions<T>) {
     return (target: any) =>
