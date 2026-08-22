@@ -1,9 +1,14 @@
 # @imqueue/type-graphql-dependency
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/imqueue/type-graphql-dependency/build.yml)](https://github.com/imqueue/type-graphql-dependency)
-[![License](https://img.shields.io/badge/license-GPL-blue.svg)](https://rawgit.com/imqueue/type-graphql-dependency/master/LICENSE)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/imqueue/type-graphql-dependency/build.yml)](https://github.com/imqueue/type-graphql-dependency/actions/workflows/build.yml)
+[![npm version](https://img.shields.io/npm/v/@imqueue/type-graphql-dependency)](https://www.npmjs.com/package/@imqueue/type-graphql-dependency)
+[![License](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/imqueue/type-graphql-dependency/blob/master/LICENSE)
 
 Adoption of @imqueue/graphql-dependency for use with type-graphql.
+
+**Using an AI assistant?** Point it at [imqueue.org/llms.txt](https://imqueue.org/llms.txt)
+for a machine-readable index of the docs. Current version, licence and Node floor
+for every package: [imqueue.org/status.json](https://imqueue.org/status.json).
 
 # Install
 
