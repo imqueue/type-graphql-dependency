@@ -41,7 +41,7 @@
   },
   "homepage": "https://imqueue.org/",
   "dependencies": {
-    "@imqueue/graphql-dependency": "^3.0.3"
+    "@imqueue/graphql-dependency": "^3.1.2"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
